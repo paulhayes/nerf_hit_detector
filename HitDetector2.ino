@@ -14,8 +14,12 @@
 
 int ledPin = 13;
 
-const unsigned int numSensors = 2;
+const unsigned int numSensors = 1;
 const unsigned int numSamples = 120;
+
+const unsigned int yHeight = 128 / numSensors;
+const int yHalfHeight = yHeight >> 1;
+const float yScale = 1.0 * yHeight / 256;
 
 int valA = 0;
 int valB = 0;
@@ -57,7 +61,6 @@ void setup() {
  
  pinMode(ledPin, OUTPUT); 
 
- analogReference(INTERNAL);
  Serial.begin(9600);
 
    // set up the ADC
@@ -69,7 +72,7 @@ void setup() {
   
   setupFreeRunningAnalog();
   
-  Serial.println(freeRam());
+  //Serial.println(freeRam());
 }
 
 // Initialization
@@ -81,7 +84,7 @@ void setupFreeRunningAnalog(){
   
   // Set REFS1..0 in ADMUX (0x7C) to change reference voltage to the
   // proper source (01)
-  ADMUX |= B01000000;
+  ADMUX |= B11000000;
   
   // Clear MUX3..0 in ADMUX (0x7C) in preparation for setting the analog
   // input
@@ -157,7 +160,7 @@ void loop() {
     
       readFlag = 0;
     }
-    
+    /*
     if( samplesComplete ){
       samplesComplete = 0;
       oled->clearScreen(Colour::Black);
@@ -169,13 +172,10 @@ void loop() {
       }
       
     }
-    
+    */
 
 }
 
-inline uint16_t clamp(uint16_t minValue, uint16_t maxValue, uint16_t value){
-  return ( value < minValue ) ? minValue : ( ( maxValue < value ) ? maxValue : value ) ;
-}
 /*
 void hitDetected(byte index){
   
@@ -230,31 +230,38 @@ ISR(ADC_vect){
   // Not needed because free-running mode is enabled.
   // Set ADSC in ADCSRA (0x7A) to start another ADC conversion
   // ADCSRA |= B01000000;
-  
+  int oldVal = sensorValues[currentAnalogIndex][currentSampleIndex];
   sensorValues[currentAnalogIndex][currentSampleIndex] = analogVal;
-  
+  byte oldAnalogIndex = currentAnalogIndex;
   currentAnalogIndex++;
   if(currentAnalogIndex==numSensors) currentAnalogIndex=0;
+  
+  ADMUX = ( ADMUX & B11110000 ) | analogInputs[currentAnalogIndex];   
+
   //if we've gone back to the first sensor, increment the sample counter
+  
+  int yOffset = yHeight * oldAnalogIndex;
+  if( oldVal != analogVal ){
+    oled->drawPixel( currentSampleIndex, yOffset + CLAMP( oldVal * yScale, -yHalfHeight, yHalfHeight ) + yHalfHeight, Colour::Black );
+    oled->drawPixel( currentSampleIndex, yOffset + CLAMP( analogVal * yScale, -yHalfHeight, yHalfHeight ) + yHalfHeight, Colour::White );
+  }
+  
   if(currentAnalogIndex==0){
     currentSampleIndex++;
+    /*
     //turn off internupt; 
     ADCSRA &= ~B00001000;
     delayMicroseconds(100);
     //turn on internupt; 
     ADCSRA |= B00001000;
-
+    */
     if( currentSampleIndex==numSamples ){
       currentSampleIndex = 0;
-      samplesComplete = 1;
-      
+      samplesComplete = 1; 
     }
   }
   
   
-  ADMUX &= B11110000;
-  ADMUX |= analogInputs[currentAnalogIndex];
-   
 }
 
 int freeRam () {
