@@ -14,12 +14,14 @@
 
 int ledPin = 13;
 
-const unsigned int numSensors = 1;
+const unsigned int numSensors = 2;
 const unsigned int numSamples = 120;
 
 const unsigned int yHeight = 128 / numSensors;
 const int yHalfHeight = yHeight >> 1;
-const float yScale = 1.0 * yHeight / 256;
+const float yScale = 1.0 * yHeight / 2048;
+
+unsigned long lastSample;
 
 int valA = 0;
 int valB = 0;
@@ -61,7 +63,7 @@ void setup() {
  
  pinMode(ledPin, OUTPUT); 
 
- Serial.begin(9600);
+
 
    // set up the ADC
   //ADCSRA &= ~PS_128;  // remove bits set by Arduino library
@@ -220,7 +222,14 @@ void hitDetected(byte index){
 */
 
 ISR(ADC_vect){
-
+  if( currentAnalogIndex == 0 ){
+    unsigned long currentTime = micros();
+    if( time < lastSample ) lastSample = time;
+    if( time - lastSample >  ){
+      
+    }
+  
+  }
   // Done reading
   readFlag = 1;
   
@@ -236,6 +245,9 @@ ISR(ADC_vect){
   currentAnalogIndex++;
   if(currentAnalogIndex==numSensors) currentAnalogIndex=0;
   
+  /* switch to pin 6 */
+  ADMUX = ( ADMUX & B11110000 ) | 6;   
+  //delayMicroseconds(8);
   ADMUX = ( ADMUX & B11110000 ) | analogInputs[currentAnalogIndex];   
 
   //if we've gone back to the first sensor, increment the sample counter
