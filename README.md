@@ -1,2 +1,2 @@
-nerf_hit_detector
+Nerf Hit Detector
 =================
