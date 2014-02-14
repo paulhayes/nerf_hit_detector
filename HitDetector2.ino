@@ -21,6 +21,7 @@ const unsigned int yHeight = 128 / numSensors;
 const int yHalfHeight = yHeight >> 1;
 const float yScale = 1.0 * yHeight / 2048;
 
+unsigned long sampleInterval = 16;
 unsigned long lastSample;
 
 int valA = 0;
@@ -35,6 +36,7 @@ int THRESHOLD = 250;
 
 long accum = 0;
 
+volatile bool readingAnalog = false;
 
 // Define various ADC prescaler
 const unsigned char PS_16 = (1 << ADPS2);
@@ -50,7 +52,7 @@ volatile uint8_t readFlag;
 volatile int analogVal;
 volatile uint8_t samplesComplete;
 
-uint8_t analogInputs[5] = { 0,1,2,3,4 };
+uint8_t analogInputs[5] = { 0,2,2,3,4 };
 
 volatile byte currentAnalogIndex = 0;
 volatile byte currentSampleIndex = 0;
@@ -112,9 +114,9 @@ void setupFreeRunningAnalog(){
   // immediately started.
   ADCSRB &= B11111000;
   
-  // Set the Prescaler to 4 (16000KHz/4 = 4MHz)
+  // Set the Prescaler to 4 (16000KHz/ = 125MHz)
   // Above 200KHz 10-bit results are not reliable.
-  ADCSRA |= B00000100 ;
+  ADCSRA |= B00000111 ;
   // Set ADIE in ADCSRA (0x7A) to enable the ADC interrupt.
   // Without this, the internal interrupt will not trigger.
   ADCSRA |= B00001000;
@@ -222,19 +224,25 @@ void hitDetected(byte index){
 */
 
 ISR(ADC_vect){
+  if( readingAnalog ) return;
+  readingAnalog = true;
+  
+  /*
   if( currentAnalogIndex == 0 ){
     unsigned long currentTime = micros();
-    if( time < lastSample ) lastSample = time;
-    if( time - lastSample >  ){
-      
+    if( currentTime < lastSample ) lastSample = currentTime;
+    if( currentTime - lastSample < sampleInterval ){
+        return;
     }
   
   }
-  // Done reading
-  readFlag = 1;
-  
+  */
+    
   // Must read low first
   analogVal = ADCL | (ADCH << 8);
+
+  // Done reading
+  readFlag = 1;
   
   // Not needed because free-running mode is enabled.
   // Set ADSC in ADCSRA (0x7A) to start another ADC conversion
@@ -247,7 +255,7 @@ ISR(ADC_vect){
   
   /* switch to pin 6 */
   ADMUX = ( ADMUX & B11110000 ) | 6;   
-  //delayMicroseconds(8);
+  delayMicroseconds(50000);
   ADMUX = ( ADMUX & B11110000 ) | analogInputs[currentAnalogIndex];   
 
   //if we've gone back to the first sensor, increment the sample counter
@@ -273,7 +281,7 @@ ISR(ADC_vect){
     }
   }
   
-  
+  readingAnalog = false;
 }
 
 int freeRam () {
